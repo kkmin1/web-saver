@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MHTML 저장기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#07131a;--bg-soft:#0d1d26;--surface:rgba(10,22,30,0.86);--surface-strong:#102733;
+    --border:rgba(165,223,221,0.18);--accent:#8fffd7;--accent-strong:#49d7c0;
+    --accent-dim:rgba(143,255,215,0.16);--accent-glow:rgba(73,215,192,0.28);
+    --text:#effbf8;--text-muted:#9eb4b6;--error:#ff8f96;--shadow:0 28px 80px rgba(0,0,0,0.38);
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:72px 24px 48px;
+    line-height:1.6;position:relative;overflow-x:hidden}
+  body::after{content:'';position:fixed;inset:auto -12vw -18vh auto;width:42vw;height:42vw;max-width:520px;max-height:520px;
+    background:radial-gradient(circle,rgba(73,215,192,0.24) 0%,rgba(73,215,192,0) 70%);pointer-events:none;z-index:0}
+  body::before{content:'';position:fixed;inset:0;
+    background:
+      radial-gradient(circle at top left,rgba(143,255,215,0.1),transparent 34%),
+      linear-gradient(rgba(143,255,215,0.04) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(143,255,215,0.04) 1px,transparent 1px),
+      linear-gradient(180deg,#08131a 0%,#091920 46%,#0c1b22 100%);
+    background-size:auto,42px 42px,42px 42px,auto;pointer-events:none;z-index:0}
+  .container{position:relative;z-index:1;width:100%;max-width:760px}
+  header{margin-bottom:30px;padding:10px 4px 0}
+  .logo-line{display:flex;align-items:center;gap:16px;margin-bottom:10px}
+  .logo-icon{width:42px;height:42px;border:1.5px solid rgba(143,255,215,0.5);border-radius:12px;
+    display:flex;align-items:center;justify-content:center;font-size:18px;
+    background:linear-gradient(180deg,rgba(143,255,215,0.16),rgba(143,255,215,0.03));
+    box-shadow:0 0 18px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,0.05)}
+  h1{font-family:'DM Mono',monospace;font-size:34px;font-weight:500;letter-spacing:-1.2px}
+  .subtitle{font-size:17px;color:var(--text-muted);font-weight:400;margin-left:58px;max-width:560px}
+  .card{background:linear-gradient(180deg,rgba(18,39,51,0.96),rgba(10,24,32,0.92));border:1px solid var(--border);
+    border-radius:24px;padding:30px;box-shadow:var(--shadow);backdrop-filter:blur(14px);margin-bottom:24px}
+  .input-row{display:flex;gap:14px;align-items:stretch}
+  .url-input{flex:1;background:rgba(5,14,19,0.78);border:1px solid rgba(165,223,221,0.14);border-radius:16px;
+    padding:18px 20px;font-family:'DM Mono',monospace;font-size:16px;color:var(--text);
+    outline:none;transition:border-color .2s,box-shadow .2s}
+  .url-input::placeholder{color:var(--text-muted)}
+  .url-input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-dim)}
+  .save-btn{background:linear-gradient(135deg,var(--accent) 0%,#b9ffe2 100%);color:#062128;border:none;border-radius:16px;
+    padding:0 24px;font-family:'DM Mono',monospace;font-size:15px;font-weight:500;
+    cursor:pointer;white-space:nowrap;transition:transform .15s,opacity .15s,box-shadow .2s;
+    display:flex;align-items:center;gap:10px;min-height:60px;box-shadow:0 16px 30px rgba(73,215,192,0.18)}
+  .save-btn:hover{box-shadow:0 0 18px var(--accent-glow),0 18px 32px rgba(73,215,192,0.18);transform:translateY(-1px)}
+  .save-btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+  .progress-wrap{height:6px;background:rgba(255,255,255,0.08);border-radius:999px;overflow:hidden;
+    margin-top:18px;opacity:0;transition:opacity .3s}
+  .progress-wrap.visible{opacity:1}
+  .progress-bar{height:100%;background:var(--accent);box-shadow:0 0 8px var(--accent);
+    width:0%;transition:width .4s ease;border-radius:999px}
+  .status-bar{min-height:44px;display:flex;align-items:center;gap:10px;
+    font-family:'DM Mono',monospace;font-size:13px;color:var(--text-muted);padding:10px 4px 0}
+  .status-bar.loading{color:var(--accent)}
+  .status-bar.error{color:var(--error)}
+  .status-bar.success{color:var(--accent)}
+  .spinner{width:16px;height:16px;flex-shrink:0;border:2px solid var(--accent-dim);
+    border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .info-note{background:rgba(90,255,163,0.05);border:1px solid rgba(90,255,163,0.2);
+    border-radius:16px;padding:16px 18px;margin-top:16px;font-size:14px;
+    color:var(--text-muted);line-height:1.85;display:none}
+  .info-note.visible{display:block}
+  .info-note strong{color:var(--accent)}
+  .server-status{display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;
+    font-size:12px;color:var(--text-muted);margin-top:16px}
+  .server-dot{width:7px;height:7px;border-radius:50%;background:var(--text-muted);flex-shrink:0;transition:background .3s}
+  .server-dot.ok{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+  .server-dot.err{background:var(--error)}
+  .history-header{font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted);
+    letter-spacing:1.8px;text-transform:uppercase;margin:0 6px 14px}
+  .history-list{display:flex;flex-direction:column;gap:8px}
+  .history-item{background:linear-gradient(180deg,rgba(17,35,45,0.92),rgba(11,25,33,0.92));border:1px solid var(--border);border-radius:18px;
+    padding:18px 18px;display:flex;align-items:center;gap:14px;animation:slideIn .25s ease;box-shadow:0 12px 28px rgba(0,0,0,0.18)}
+  .history-item:hover{border-color:rgba(143,255,215,0.32)}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+  .history-icon{font-size:22px;flex-shrink:0}
+  .history-info{flex:1;min-width:0}
+  .history-url{font-family:'DM Mono',monospace;font-size:13px;color:var(--text);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .history-meta{font-size:12px;color:var(--text-muted);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap}
+  .retry-btn{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:9px 12px;
+    font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted);cursor:pointer;
+    transition:border-color .2s,color .2s;white-space:nowrap}
+  .retry-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .empty-state{text-align:center;padding:38px;color:var(--text-muted);font-size:15px;font-weight:400}
+  .empty-state .em{font-size:32px;margin-bottom:12px}
+  .helper-copy{margin-top:18px;padding:0 4px;font-size:14px;color:var(--text-muted)}
+  .helper-copy strong{color:var(--text);font-weight:600}
+  @media (max-width:720px){
+    body{padding:44px 16px 36px}
+    h1{font-size:28px}
+    .subtitle{font-size:15px;margin-left:0}
+    .card{padding:22px 18px;border-radius:20px}
+    .input-row{flex-direction:column}
+    .save-btn{width:100%;justify-content:center}
+    .history-item{align-items:flex-start;flex-wrap:wrap}
+    .retry-btn{width:100%}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo-line">
+      <div class="logo-icon">⬛</div>
+      <h1>mhtml-saver</h1>
+    </div>
+    <p class="subtitle">웹페이지를 단일 MHTML 파일로 저장합니다</p>
+  </header>
+
+  <div class="card">
+    <div class="input-row">
+      <input class="url-input" id="urlInput" type="text"
+        placeholder="https://example.com" autocomplete="off" spellcheck="false"/>
+      <button class="save-btn" id="saveBtn" onclick="savePage()">
+        <span id="btnIcon">↓</span><span id="btnText">저장</span>
+      </button>
+    </div>
+    <p class="helper-copy"><strong>Tip.</strong> 뉴스 기사, 블로그, 문서 페이지처럼 정적인 페이지를 저장할 때 가장 안정적으로 동작합니다.</p>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="status-bar" id="statusBar">
+      <span id="statusText">URL을 입력하고 Enter 또는 저장 버튼을 누르세요</span>
+    </div>
+    <div class="info-note" id="infoNote">
+      <strong>💡 이미지가 저장되지 않나요?</strong><br>
+      네이버·카카오 등은 로그인 세션이 필요합니다.<br>
+      해당 사이트에 <strong>같은 브라우저로 로그인</strong>한 상태에서 저장하면 이미지가 포함됩니다.<br>
+      <strong>※ 여전히 안 된다면:</strong> 브라우저 DevTools → Application → Cookies에서
+      해당 사이트 쿠키를 확인하세요.
+    </div>
+    <div class="server-status">
+      <span class="server-dot" id="serverDot"></span>
+      <span id="serverStatusText">서버 확인 중...</span>
+    </div>
+  </div>
+
+  <div id="historySection">
+    <p class="history-header">저장 이력</p>
+    <div class="history-list" id="historyList">
+      <div class="empty-state"><div class="em">📄</div>저장된 파일이 없습니다</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API='http://localhost:8765';
+let saving=false,historyList=[];
+
+async function checkServer(){
+  const dot=document.getElementById('serverDot'),txt=document.getElementById('serverStatusText');
+  try{
+    const r=await fetch(`${API}/health`,{signal:AbortSignal.timeout(3000)});
+    if(r.ok){dot.className='server-dot ok';txt.textContent='서버 연결됨 (localhost:8765)';}
+    else throw 0;
+  }catch{dot.className='server-dot err';txt.textContent='서버 오프라인 — uvicorn server:app --port 8765 실행 필요';}
+}
+
+function setStatus(msg,type=''){
+  const bar=document.getElementById('statusBar'),txt=document.getElementById('statusText');
+  bar.className='status-bar'+(type?' '+type:'');
+  const old=bar.querySelector('.spinner');if(old)old.remove();
+  if(type==='loading'){const s=document.createElement('div');s.className='spinner';bar.insertBefore(s,txt);}
+  txt.textContent=msg;
+}
+function setProgress(pct){
+  const wrap=document.getElementById('progressWrap'),bar=document.getElementById('progressBar');
+  if(pct===null){wrap.classList.remove('visible');bar.style.width='0%';}
+  else{wrap.classList.add('visible');bar.style.width=pct+'%';}
+}
+function triggerDownload(blob,filename){
+  const u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download=filename;document.body.appendChild(a);a.click();
+  document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(u),5000);
+}
+function updateHistory(){
+  const list=document.getElementById('historyList');
+  if(!historyList.length){
+    list.innerHTML='<div class="empty-state"><div class="em">📄</div>저장된 파일이 없습니다</div>';return;
+  }
+  list.innerHTML=historyList.map(h=>`
+    <div class="history-item">
+      <div class="history-icon">${h.ok?'✅':'❌'}</div>
+      <div class="history-info">
+        <div class="history-url" title="${h.url}">${h.url}</div>
+        <div class="history-meta">
+          <span>🕐 ${h.time}</span>
+          ${h.ok?`<span>📎 ${h.filename}</span><span>🖼 ${h.count}개</span>`
+                 :`<span style="color:var(--error)">${h.error}</span>`}
+        </div>
+      </div>
+      <button class="retry-btn" onclick="retryUrl('${h.url}')">재시도</button>
+    </div>`).join('');
+}
+function retryUrl(url){document.getElementById('urlInput').value=url;savePage();}
+
+function extractResourceUrls(html,baseUrl){
+  const urls=new Set();
+  const parser=new DOMParser(),doc=parser.parseFromString(html,'text/html');
+  const imgAttrs=['src','data-src','data-lazy-src','data-original','data-img','data-lazy','data-thumb','data-real-src'];
+  doc.querySelectorAll('img').forEach(el=>imgAttrs.forEach(a=>{
+    const v=el.getAttribute(a);
+    if(v&&!v.startsWith('data:')){try{urls.add(new URL(v,baseUrl).href);}catch{}}
+  }));
+  doc.querySelectorAll('link[rel="stylesheet"]').forEach(el=>{try{urls.add(new URL(el.getAttribute('href'),baseUrl).href);}catch{}});
+  doc.querySelectorAll('script[src]').forEach(el=>{try{urls.add(new URL(el.getAttribute('src'),baseUrl).href);}catch{}});
+  for(const m of html.matchAll(/url\(["']?([^"')]+)["']?\)/g)){
+    const u=m[1].trim();if(!u.startsWith('data:')){try{urls.add(new URL(u,baseUrl).href);}catch{}}
+  }
+  return[...urls].filter(u=>u.startsWith('http')).slice(0,120);
+}
+
+async function savePage(){
+  if(saving)return;
+  let url=document.getElementById('urlInput').value.trim();
+  if(!url){setStatus('URL을 입력해주세요','error');return;}
+  if(!url.startsWith('http'))url='https://'+url;
+
+  saving=true;
+  document.getElementById('saveBtn').disabled=true;
+  document.getElementById('btnText').textContent='저장 중';
+  document.getElementById('btnIcon').textContent='⏳';
+  document.getElementById('infoNote').classList.remove('visible');
+
+  const timeStr=new Date().toLocaleTimeString('ko-KR');
+  setProgress(5);
+
+  try{
+    // 1단계: 서버 직접 fetch 시도
+    setStatus('페이지 가져오는 중...','loading');
+    const saveResp=await fetch(`${API}/save`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url,cookies:{}}),
+    });
+
+    if(saveResp.ok){
+      setProgress(95);setStatus('다운로드 중...','loading');
+      const filename=saveResp.headers.get('X-Filename')||'page.mhtml';
+      const count=saveResp.headers.get('X-Resource-Count')||'?';
+      triggerDownload(await saveResp.blob(),filename);
+      setProgress(100);setTimeout(()=>setProgress(null),800);
+      setStatus(`저장 완료! ${filename} (리소스 ${count}개)`,'success');
+      historyList.unshift({ok:true,url,time:timeStr,filename,count});updateHistory();
+      if(parseInt(count)<3)document.getElementById('infoNote').classList.add('visible');
+      return;
+    }
+
+    // 2단계: 서버 fetch 실패 → 브라우저로 HTML 가져오고, 이미지는 /proxy
+    setStatus('브라우저 수집 모드 전환 중...','loading');
+    setProgress(15);
+
+    const pageResp=await fetch(url,{credentials:'include'});
+    if(!pageResp.ok)throw new Error(`페이지 오류: ${pageResp.status}`);
+    const finalUrl=pageResp.url;
+    const html=await pageResp.text();
+
+    setProgress(30);
+    const resUrls=extractResourceUrls(html,finalUrl);
+    setStatus(`서버 프록시로 리소스 ${resUrls.length}개 수집 중...`,'loading');
+    setProgress(40);
+
+    // 서버 /proxy: 서버가 이미지 대신 fetch (Referer 헤더 포함)
+    const proxyResp=await fetch(`${API}/proxy`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({urls:resUrls,referer:finalUrl,cookies:{}}),
+    });
+    if(!proxyResp.ok)throw new Error('프록시 요청 실패');
+    const {resources}=await proxyResp.json();
+
+    setProgress(85);
+    setStatus(`MHTML 조립 중... (리소스 ${resources.length}개)`,'loading');
+
+    const assembleResp=await fetch(`${API}/assemble`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({page_url:finalUrl,html,resources}),
+    });
+    if(!assembleResp.ok)throw new Error('MHTML 조립 실패');
+
+    setProgress(97);
+    const filename=assembleResp.headers.get('X-Filename')||'page.mhtml';
+    const count=assembleResp.headers.get('X-Resource-Count')||resources.length;
+    triggerDownload(await assembleResp.blob(),filename);
+    setProgress(100);setTimeout(()=>setProgress(null),800);
+    setStatus(`저장 완료! ${filename} (리소스 ${count}개)`,'success');
+    historyList.unshift({ok:true,url,time:timeStr,filename,count});updateHistory();
+    if(parseInt(count)<3)document.getElementById('infoNote').classList.add('visible');
+
+  }catch(e){
+    setProgress(null);setStatus(e.message,'error');
+    historyList.unshift({ok:false,url,time:timeStr,error:e.message});updateHistory();
+  }finally{
+    saving=false;
+    document.getElementById('saveBtn').disabled=false;
+    document.getElementById('btnText').textContent='저장';
+    document.getElementById('btnIcon').textContent='↓';
+  }
+}
+
+document.getElementById('urlInput').addEventListener('keydown',e=>{if(e.key==='Enter')savePage();});
+checkServer();setInterval(checkServer,10000);
+</script>
+</body>
+</html>

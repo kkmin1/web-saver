@@ -1,6 +1,6 @@
 """
 MHTML Web Saver - FastAPI Backend
-Usage: uvicorn server:app --reload --port 8765
+Usage: python server.py
 """
 
 import asyncio
@@ -17,6 +17,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, HTMLResponse
 from pydantic import BaseModel
+import uvicorn
 
 app = FastAPI(title="MHTML Web Saver")
 
@@ -251,3 +252,10 @@ async def health():
 async def root():
     with open("index.html", "r", encoding="utf-8") as f:
         return f.read()
+
+
+if __name__ == "__main__":
+    print("🚀 서버가 시작됩니다...")
+    print("📍 http://localhost:8765 에서 접속하세요")
+    print("⏹️  종료하려면 Ctrl+C를 누르세요\n")
+    uvicorn.run(app, host="0.0.0.0", port=8765)

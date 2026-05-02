@@ -19,12 +19,24 @@
 
 ## 실행 방법
 
+### 1단계: 저장소 클론
 ```bash
-pip install -r requirements.txt
-uvicorn server:app --reload --port 8765
+git clone https://github.com/kkmin1/web-saver.git
+cd web-saver
 ```
 
-브라우저에서 [http://localhost:8765](http://localhost:8765) 로 접속합니다.
+### 2단계: 의존성 설치
+```bash
+pip install -r requirements.txt
+```
+
+### 3단계: 서버 실행
+```bash
+python server.py
+```
+
+### 4단계: 브라우저에서 접속
+[http://localhost:8765](http://localhost:8765) 로 접속합니다.
 
 ## 사용 방법
 
